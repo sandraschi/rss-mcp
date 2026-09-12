@@ -9,7 +9,9 @@ from pydantic import Field
 
 from rss_mcp import db, search
 
-ReaderOp = Literal["inbox", "starred", "search_text", "search_semantic", "stats", "trigger_sweep", "sweep_status"]
+ReaderOp = Literal[
+    "inbox", "starred", "search_text", "search_semantic", "stats", "rag_stats", "trigger_sweep", "sweep_status"
+]
 
 RATIONALE = "One reader_ops tool is the daily reading surface: inbox, stars, search, stats, background sweeps."
 
@@ -33,13 +35,23 @@ async def reader_ops(
     query: str = "",
     limit: int = 25,
     job_id: str = "",
+    mode: Annotated[str, Field(description="Sweep mode: incremental or full. Used by: trigger_sweep")] = "incremental",
+    hours: Annotated[int, Field(description="Lookback hours for incremental sweep. Used by: trigger_sweep")] = 4,
+    feed_id: Annotated[int, Field(description="Scope sweep to one feed id, 0 means all. Used by: trigger_sweep")] = 0,
+    ctx: Any = None,
 ) -> dict[str, Any]:
-    """reader_ops - Daily reading surface: inbox, stars, search, stats, sweeps.
+    """reader_ops - Daily reading surface: inbox, stars, search, stats, RAG sweeps.
 
     RATIONALE: single entry point for what a human checks every morning.
 
-    Return Format: {success, message, items/stats/job/job_id}
-    Examples: {operation: inbox} unread items; {operation: search_text, query: vienna} FTS; {operation: stats} counts.
+    ## Return Format
+    {success, message, items/stats/job/job_id/status/chunks}
+
+    ## Examples
+    - {"operation": "inbox"} unread items
+    - {"operation": "search_text", "query": "vienna"} FTS search
+    - {"operation": "search_semantic", "query": "rocket engine"} vector search
+    - {"operation": "trigger_sweep", "mode": "incremental", "hours": 4} background index job
     """
     db.init_db()
     if operation == "inbox":
@@ -68,8 +80,16 @@ async def reader_ops(
         return search.search_semantic(query, limit=limit)
     if operation == "stats":
         return {"success": True, "message": "Reader stats", "stats": _stats_payload()}
+    if operation == "rag_stats":
+        return search.rag_stats()
     if operation == "trigger_sweep":
-        return search.trigger_sweep()
+        r = search.trigger_sweep(mode=mode, hours=hours, feed_id=feed_id)
+        if ctx is not None:
+            try:
+                await ctx.report_progress(0, 1)
+            except Exception:
+                pass
+        return r
     if operation == "sweep_status":
         return search.sweep_status(job_id)
     return {"success": False, "message": f"Unknown operation {operation}"}

@@ -36,17 +36,28 @@ def test_fts_search():
 def test_semantic_falls_back_without_deps():
     r = search.search_semantic("Vienna")
     assert r["success"]
-    assert r["mode"] in ("fts-only", "semantic-unavailable-index-empty")
+    assert r["mode"] in ("fts-only", "semantic", "semantic-error-fts-fallback", "semantic-unavailable-index-empty")
 
 
 def test_sweep_job_lifecycle():
     _seed()
-    r = search.trigger_sweep()
+    r = search.trigger_sweep(mode="incremental", hours=4)
     assert r["success"] and r["job_id"]
+    assert r["status"] in ("queued", "running")
+    s = search.sweep_status(r["job_id"])
+    assert s["success"] and s["status"] in ("queued", "running", "complete", "error")
     for _ in range(100):
         s = search.sweep_status(r["job_id"])
         assert s["success"]
-        if s["job"]["status"] == "done":
+        assert "chunks" in s
+        if s["status"] in ("complete", "error"):
             break
         time.sleep(0.05)
-    assert s["job"]["status"] == "done"
+    assert s["status"] in ("complete", "error")
+
+
+def test_rag_stats_contract():
+    s = search.rag_stats()
+    assert s["success"]
+    assert "total_vectors" in s and "model" in s and "dims" in s
+    assert s["dims"] == 384

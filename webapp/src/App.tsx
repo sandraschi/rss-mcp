@@ -7,10 +7,25 @@ import Feeds from "./pages/Feeds";
 import Help from "./pages/Help";
 import Inbox from "./pages/Inbox";
 import Logs from "./pages/Logs";
+import RagOperations from "./pages/RagOperations";
 import Reader from "./pages/Reader";
 import Settings from "./pages/Settings";
 import Skills from "./pages/Skills";
 import Tools from "./pages/Tools";
+
+const NAV = [
+	"/",
+	"/reader",
+	"/feeds",
+	"/inbox",
+	"/tools",
+	"/rag",
+	"/skills",
+	"/chat",
+	"/settings",
+	"/help",
+	"/logs",
+];
 
 export default function App() {
 	const [open, setOpen] = useState(true);
@@ -45,18 +60,7 @@ export default function App() {
 			<div className="flex">
 				{open && (
 					<nav className="w-48 space-y-1 border-r border-slate-800 p-3">
-						{[
-							"/",
-							"/reader",
-							"/feeds",
-							"/inbox",
-							"/tools",
-							"/skills",
-							"/chat",
-							"/settings",
-							"/help",
-							"/logs",
-						].map((p) => (
+						{NAV.map((p) => (
 							<Link
 								key={p}
 								to={p === "/" ? "/" : p}
@@ -74,6 +78,7 @@ export default function App() {
 						<Route path="/feeds" element={<Feeds />} />
 						<Route path="/inbox" element={<Inbox />} />
 						<Route path="/tools" element={<Tools />} />
+						<Route path="/rag" element={<RagOperations />} />
 						<Route path="/skills" element={<Skills />} />
 						<Route path="/chat" element={<Chat />} />
 						<Route path="/settings" element={<Settings />} />

@@ -21,6 +21,8 @@ dependencies = [
     "readability-lxml>=0.8",
     "starlette>=1.0.1",
     "uvicorn[standard]>=0.32",
+    "lancedb>=0.30",
+    "fastembed>=0.4.0",
 ]
 
 [project.optional-dependencies]
@@ -48,7 +50,7 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "S", "UP", "RUF"]
-ignore = ["S101", "S603", "S607", "S324", "E501", "S310", "S320", "S110", "S112", "B008", "RUF002", "S106", "RUF012"]
+ignore = ["S101", "S603", "S607", "S324", "E501", "S310", "S110", "S112", "B008", "RUF002", "S106", "RUF012"]
 
 [tool.ruff.format]
 quote-style = "double"

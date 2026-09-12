@@ -70,6 +70,7 @@ async def tools(_: Request) -> JSONResponse:
                         "search_text",
                         "search_semantic",
                         "stats",
+                        "rag_stats",
                         "trigger_sweep",
                         "sweep_status",
                     ],
@@ -141,8 +142,17 @@ async def llm_chat(req: Request) -> JSONResponse:
     )
 
 
-async def rag_sweep(_: Request) -> JSONResponse:
-    r = search.trigger_sweep()
+async def rag_sweep(req: Request) -> JSONResponse:
+    body: dict[str, Any] = {}
+    try:
+        body = await req.json()
+    except Exception:
+        body = {}
+    r = search.trigger_sweep(
+        mode=str(body.get("mode", "incremental")),
+        hours=int(body.get("hours", 4) or 4),
+        feed_id=int(body.get("feed_id", 0) or 0),
+    )
     log(f"sweep {r.get('job_id')}")
     return JSONResponse(r)
 
@@ -150,6 +160,18 @@ async def rag_sweep(_: Request) -> JSONResponse:
 async def rag_sweep_status(req: Request) -> JSONResponse:
     job_id = str(req.path_params.get("job_id", ""))
     return JSONResponse(search.sweep_status(job_id))
+
+
+async def rag_stats(_: Request) -> JSONResponse:
+    return JSONResponse(search.rag_stats())
+
+
+async def reindex(req: Request) -> JSONResponse:
+    return await rag_sweep(req)
+
+
+async def reindex_status(req: Request) -> JSONResponse:
+    return await rag_sweep_status(req)
 
 
 def build_app() -> Starlette:
@@ -168,6 +190,10 @@ def build_app() -> Starlette:
         Route("/api/llm/chat", llm_chat, methods=["POST"]),
         Route("/api/rag/sweep", rag_sweep, methods=["POST"]),
         Route("/api/rag/sweep/{job_id}", rag_sweep_status),
+        Route("/api/rag/status/{job_id}", rag_sweep_status),
+        Route("/api/rag/stats", rag_stats),
+        Route("/api/reindex", reindex, methods=["GET", "POST"]),
+        Route("/api/reindex/{job_id}", reindex_status),
     ]
     app = Starlette(routes=routes)
     app.add_middleware(
