@@ -27,3 +27,4 @@ data/fastembed_cache/
 *.bak.*
 .DS_Store
 Thumbs.db
+reports/
