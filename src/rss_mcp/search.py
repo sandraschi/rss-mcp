@@ -6,6 +6,7 @@ Frontend polls status; MCP tools report progress via ctx.report_progress.
 
 from __future__ import annotations
 
+import contextlib
 import threading
 import time
 import uuid
@@ -112,6 +113,7 @@ def _sweep_items(mode: str, hours: int, feed_id: int) -> list[dict[str, Any]]:
 
 
 def _run_sweep(job_id: str, mode: str, hours: int, feed_id: int) -> None:
+    db.init_db()
     con = _con()
     try:
         con.execute("UPDATE jobs SET total=0, done=0, status='running', message='sweep started' WHERE id=?", (job_id,))
@@ -134,12 +136,10 @@ def _run_sweep(job_id: str, mode: str, hours: int, feed_id: int) -> None:
                     }
                 )
         if mode == "full" and is_available():
-            try:
+            with contextlib.suppress(Exception):
                 from rss_mcp.rag_store import RssVectorStore
 
                 RssVectorStore().drop()
-            except Exception:
-                pass
         done = 0
         if is_available() and chunks:
             from rss_mcp.rag_store import RssVectorStore
@@ -173,11 +173,9 @@ def _run_sweep(job_id: str, mode: str, hours: int, feed_id: int) -> None:
             finally:
                 con.close()
             for n, fid in enumerate(ids, 1):
-                try:
-                    if fid:
+                if fid:
+                    with contextlib.suppress(Exception):
                         _feeds.refresh_feed(int(fid))
-                except Exception:
-                    pass
                 con = _con()
                 try:
                     con.execute(

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import time
 import xml.etree.ElementTree as ET
 from typing import Any
@@ -124,10 +125,8 @@ def refresh_feed(feed_id: int) -> dict[str, Any]:
             if cur.rowcount:
                 added += 1
                 rowid = cur.lastrowid
-                try:
+                with contextlib.suppress(Exception):
                     con.execute("INSERT INTO items_fts(rowid, title, summary) VALUES(?,?,?)", (rowid, etitle, summary))
-                except Exception:
-                    pass
         con.execute(
             "UPDATE feeds SET title=?, etag=?, last_modified=?, last_checked=?, last_status=?, error=? WHERE id=?",
             (

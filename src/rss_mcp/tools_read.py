@@ -24,8 +24,13 @@ async def readability_ops(
     RATIONALE: trafilatura primary plus readability-lxml fallback, cached in SQLite.
     No paywall bypass: if the page needs login, extraction reports failure honestly.
 
-    Return Format: {success, message, title/author/text/html/extractor/cached}
-    Examples: {operation: extract, item_id: 3} downloads and cleans; {operation: list_extractors} shows engines.
+    ## Return Format
+    Dictionary with `success` (bool), `message` (str), and article text fields (`title`, `author`, `text`, `html`, `extractor`, `cached`).
+
+    ## Examples
+    - {"operation": "extract", "item_id": 3} -> downloads article and extracts cleaned text.
+    - {"operation": "get_cached", "item_id": 3} -> retrieves previously cached clean extraction.
+    - {"operation": "list_extractors"} -> lists available readability engines.
     """
     if operation == "extract":
         return readability.extract(item_id, force=force)
@@ -39,4 +44,4 @@ async def readability_ops(
 
 
 def register(mcp: FastMCP) -> None:
-    mcp.tool()(readability_ops)
+    mcp.tool(annotations={"mutating": True})(readability_ops)

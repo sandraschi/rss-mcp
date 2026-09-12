@@ -82,7 +82,7 @@ export default function RagOperations() {
 				</button>
 				<span data-testid="rag-status">{status}</span>
 			</div>
-			<p className="mt-3 text-sm text-slate-400">
+			<p className="mt-3 text-sm text-slate-300">
 				Sweeps run as background jobs. This page polls job status every 1.2s, no
 				request timeout aborts the backend job.
 			</p>

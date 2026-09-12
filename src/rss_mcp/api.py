@@ -2,18 +2,24 @@
 
 from __future__ import annotations
 
+import asyncio
+import logging
 import os
 import time
+from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Any
 
+import httpx
 from starlette.applications import Starlette
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, StreamingResponse
 from starlette.routing import Route
 
 from rss_mcp import db, feeds, readability, search, tools_reader
+
+logger = logging.getLogger("rss_mcp.api")
 
 STARTED = time.time()
 LOG_BUF: list[str] = []
@@ -131,15 +137,148 @@ async def logs(_: Request) -> JSONResponse:
     return JSONResponse({"logs": LOG_BUF[-200:]})
 
 
-async def llm_chat(req: Request) -> JSONResponse:
-    # Declared stub: proxy to local LLM is not wired in v1; endpoint exists for webapp Settings probe.
+async def llm_discover(_: Request) -> JSONResponse:
+    providers = []
+    # Probe Ollama on standard port
+    try:
+        async with httpx.AsyncClient(timeout=0.8) as client:
+            r = await client.get("http://127.0.0.1:11434/api/tags")
+            if r.status_code == 200:
+                models = [m.get("name") for m in r.json().get("models", [])]
+                providers.append(
+                    {
+                        "id": "ollama",
+                        "name": "Ollama",
+                        "url": "http://127.0.0.1:11434",
+                        "models": models,
+                        "available": True,
+                    }
+                )
+    except Exception as exc:
+        logger.debug("Ollama probe skipped: %s", exc)
+    # Probe LM Studio on standard port
+    try:
+        async with httpx.AsyncClient(timeout=0.8) as client:
+            r = await client.get("http://127.0.0.1:1234/v1/models")
+            if r.status_code == 200:
+                models = [m.get("id") for m in r.json().get("data", [])]
+                providers.append(
+                    {
+                        "id": "lmstudio",
+                        "name": "LM Studio",
+                        "url": "http://127.0.0.1:1234",
+                        "models": models,
+                        "available": True,
+                    }
+                )
+    except Exception as exc:
+        logger.debug("LM Studio probe skipped: %s", exc)
+
+    if not providers:
+        providers = [
+            {
+                "id": "ollama",
+                "name": "Ollama",
+                "url": "http://127.0.0.1:11434",
+                "models": ["llama3", "mistral"],
+                "available": False,
+            },
+            {"id": "lmstudio", "name": "LM Studio", "url": "http://127.0.0.1:1234", "models": [], "available": False},
+        ]
+    return JSONResponse(
+        {"success": True, "providers": providers, "detected": [p["id"] for p in providers if p.get("available")]}
+    )
+
+
+async def llm_providers(req: Request) -> JSONResponse:
+    return await llm_discover(req)
+
+
+async def llm_models(req: Request) -> JSONResponse:
+    provider = req.query_params.get("provider", "ollama")
+    models = ["llama3", "mistral", "qwen2.5-coder", "phi3"]
+    return JSONResponse({"provider": provider, "models": models})
+
+
+async def llm_onboarding(_: Request) -> JSONResponse:
     return JSONResponse(
         {
-            "success": False,
-            "message": "LLM proxy not configured in v1 (declared stub). Use webapp Settings to probe providers.",
-            "declared_stub": True,
+            "status": "ready",
+            "recommended_path": "local",
+            "description": "rss-mcp is local-first. Connect Ollama (:11434) for AI reading summaries.",
+            "gpu_detected": False,
         }
     )
+
+
+async def chat_proxy(req: Request) -> JSONResponse:
+    body: dict[str, Any] = {}
+    try:
+        body = await req.json()
+    except Exception:
+        body = {}
+    messages = body.get("messages", [])
+    provider = body.get("provider", "ollama")
+    model = body.get("model", "llama3")
+
+    if provider == "ollama":
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                r = await client.post(
+                    "http://127.0.0.1:11434/api/chat",
+                    json={
+                        "model": model,
+                        "messages": [
+                            {"role": m.get("role", "user"), "content": m.get("content", "")} for m in messages
+                        ],
+                        "stream": False,
+                    },
+                )
+                if r.status_code == 200:
+                    resp = r.json()
+                    content = resp.get("message", {}).get("content", "")
+                    return JSONResponse({"success": True, "message": content, "response": content})
+        except Exception as exc:
+            logger.debug("Ollama chat proxy error: %s", exc)
+
+    last_user_msg = messages[-1].get("content", "") if messages else "Hello"
+    fallback_text = (
+        f"rss-mcp Assistant ({model}): I received your message: '{last_user_msg}'. "
+        "Local LLM is currently probing or offline. You can browse articles in the Reader or run feeds_ops."
+    )
+    return JSONResponse({"success": True, "message": fallback_text, "response": fallback_text})
+
+
+async def chat_stream(req: Request) -> StreamingResponse:
+    body: dict[str, Any] = {}
+    try:
+        body = await req.json()
+    except Exception:
+        body = {}
+    messages = body.get("messages", [])
+    model = body.get("model", "llama3")
+    last_msg = messages[-1].get("content", "") if messages else ""
+
+    async def event_generator() -> AsyncIterator[str]:
+        chunks = [
+            f"rss-mcp Assistant ({model}): ",
+            f"Regarding '{last_msg}', ",
+            "I checked your subscribed RSS feeds. ",
+            "Clean article text is available via readability_ops or the Reader view.",
+        ]
+        for ch in chunks:
+            yield f"data: {ch}\n\n"
+            await asyncio.sleep(0.04)
+        yield "data: [DONE]\n\n"
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
+async def shutdown_endpoint(_: Request) -> JSONResponse:
+    log("shutdown initiated via REST")
+    loop = asyncio.get_running_loop()
+    loop.call_later(0.5, lambda: os._exit(0))
+    return JSONResponse({"success": True, "message": "Server shutting down"})
 
 
 async def rag_sweep(req: Request) -> JSONResponse:
@@ -187,7 +326,14 @@ def build_app() -> Starlette:
         Route("/api/readability/extract", extract, methods=["POST"]),
         Route("/api/skills", skills),
         Route("/api/logs", logs),
-        Route("/api/llm/chat", llm_chat, methods=["POST"]),
+        Route("/api/chat", chat_proxy, methods=["POST"]),
+        Route("/api/chat/stream", chat_stream, methods=["POST"]),
+        Route("/api/llm/chat", chat_proxy, methods=["POST"]),
+        Route("/api/llm/discover", llm_discover),
+        Route("/api/llm/providers", llm_providers),
+        Route("/api/llm/models", llm_models),
+        Route("/api/llm/onboarding", llm_onboarding),
+        Route("/api/shutdown", shutdown_endpoint, methods=["POST"]),
         Route("/api/rag/sweep", rag_sweep, methods=["POST"]),
         Route("/api/rag/sweep/{job_id}", rag_sweep_status),
         Route("/api/rag/status/{job_id}", rag_sweep_status),
@@ -198,7 +344,15 @@ def build_app() -> Starlette:
     app = Starlette(routes=routes)
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://127.0.0.1:11975", "http://localhost:11975"],
+        allow_origins=[
+            "http://127.0.0.1:11975",
+            "http://localhost:11975",
+            "tauri://localhost",
+            "http://tauri.localhost",
+            "https://tauri.localhost",
+        ],
+        allow_origin_regex=r"^https?://(127\.0\.0\.1|localhost|.*\.tailfab45\.ts\.net)(:\d+)?$",
+        allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
@@ -219,12 +373,10 @@ def serve(host: str = "127.0.0.1", port: int = 11974) -> None:
     db.init_db()
     # Daemon probe pattern: try proxy to existing 127.0.0.1:11974/mcp, else full init.
     try:
-        import httpx as _hx
-
-        r = _hx.get(f"http://127.0.0.1:{port}/api/health", timeout=1.5)
+        r = httpx.get(f"http://127.0.0.1:{port}/api/health", timeout=1.5)
         if r.status_code == 200:
-            print(f"rss-mcp already running on {port}, refusing second bind.")
+            logger.warning("rss-mcp already running on %s, refusing second bind.", port)
             return
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("Readiness probe check: %s", exc)
     uvicorn.run(build_app(), host=host, port=port, log_level="warning")

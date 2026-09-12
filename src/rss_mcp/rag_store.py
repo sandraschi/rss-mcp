@@ -73,6 +73,15 @@ class RssVectorStore:
     def _embed(self, texts: list[str]) -> list[list[float]]:
         return [e.tolist() for e in self.model.embed(texts)]
 
+    def _table_exists(self) -> bool:
+        try:
+            res: Any = self.db.list_tables()
+            if hasattr(res, "tables"):
+                return self.table in res.tables
+            return self.table in list(res)
+        except Exception:
+            return False
+
     def upsert_chunks(self, rows: list[dict[str, Any]], mode: str = "append") -> int:
         if not rows:
             return 0
@@ -89,23 +98,23 @@ class RssVectorStore:
             }
             for r, v in zip(rows, vectors, strict=False)
         ]
-        if mode == "overwrite" or self.table not in self.db.list_tables():
+        if mode == "overwrite" or not self._table_exists():
             self.db.create_table(self.table, data=data, mode="overwrite")
         else:
             self.db.open_table(self.table).add(data)
         return len(data)
 
     def search(self, query: str, limit: int = 10) -> list[dict[str, Any]]:
-        if self.table not in self.db.list_tables():
+        if not self._table_exists():
             return []
         qv = next(iter(self.model.embed([query]))).tolist()
         return self.db.open_table(self.table).search(qv).limit(limit).to_list()
 
     def count(self) -> int:
-        if self.table not in self.db.list_tables():
+        if not self._table_exists():
             return 0
         return int(self.db.open_table(self.table).count_rows())
 
     def drop(self) -> None:
-        if self.table in self.db.list_tables():
+        if self._table_exists():
             self.db.drop_table(self.table)

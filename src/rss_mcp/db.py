@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import sqlite3
 import time
 from pathlib import Path
+from typing import Any
 
 SCHEMA = """
 PRAGMA journal_mode=WAL;
@@ -82,3 +84,14 @@ def init_db() -> None:
 
 def now() -> int:
     return int(time.time())
+
+
+logger = logging.getLogger("rss_mcp")
+
+
+def _error_response(message: str, exc: Exception | None = None) -> dict[str, Any]:
+    if exc is not None:
+        logger.exception("%s: %s", message, exc)
+    else:
+        logger.error("%s", message)
+    return {"success": False, "message": message}

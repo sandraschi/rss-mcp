@@ -1,4 +1,3 @@
-#Requires -Version 7.0
 # mcpb-pack.ps1 - pack rss-mcp to .mcpb (MCPB only, no Tauri in v1)
 $ErrorActionPreference = "Stop"
 Set-Location (Split-Path $PSScriptRoot -Parent)

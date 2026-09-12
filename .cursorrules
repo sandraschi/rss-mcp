@@ -5,3 +5,14 @@
 - Portmanteau tools only: feeds_ops, readability_ops, reader_ops.
 - All tool results are dialogic dicts with success + message.
 - Backend 11974, frontend 11975. Never use 3000/5000/5173/8000/8080.
+
+## Session Context (rss-mcp)
+
+Local-first RSS reader + readability extractor with LanceDB/FastEmbed semantic search.
+
+**Before starting work, check subscriptions and unread items:**
+1. `feeds_ops(operation="list_feeds")` -> review subscribed feeds
+2. `reader_ops(operation="inbox")` -> check recent unread articles
+
+**At end of work, ensure feed state and cache are clean:**
+- `reader_ops(operation="stats")` -> verify item counts and cached clean extracts

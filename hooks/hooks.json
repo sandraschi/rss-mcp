@@ -1,0 +1,10 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "type": "text",
+        "content": "## rss-mcp\nLocal-first RSS reader + readability extractor with LanceDB/FastEmbed semantic search.\n\n**Before starting work, check subscriptions and unread items:**\n1. `feeds_ops(operation=\"list_feeds\")` -> review subscribed feeds\n2. `reader_ops(operation=\"inbox\")` -> check recent unread articles\n\n**At end of work, ensure feed state and cache are clean:**\n- `reader_ops(operation=\"stats\")` -> verify item counts and cached clean extracts"
+      }
+    ]
+  }
+}

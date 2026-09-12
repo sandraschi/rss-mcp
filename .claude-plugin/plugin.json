@@ -1,1 +1,1 @@
-{"name": "rss-mcp", "version": "0.1.0", "description": "Local-first RSS reader + readability extractor"}
+{"name": "rss-mcp", "version": "0.1.0", "description": "Local-first RSS reader + readability extractor", "hooks": "../hooks/hooks.json"}

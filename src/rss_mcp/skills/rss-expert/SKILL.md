@@ -1,3 +1,8 @@
+---
+name: rss-expert
+description: Expert skill for reading RSS feeds, extracting clean article text, and semantic search
+---
+
 # rss-expert skill
 Use rss-mcp to read RSS without ad sites.
 - feeds_ops list_feeds/subscribe/refresh_all/fetch_items/get_item/mark_read/mark_star/opml_import/opml_export/feed_health

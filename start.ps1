@@ -11,5 +11,21 @@ if ($mode.RunBackend) {
 if ($mode.RunFrontend) {
     $fe = Start-FleetDetachedShell -Label "rss-mcp-frontend" -Exe "bun" -Args @("run", "dev", "--port", "11975") -WorkingDirectory "$PSScriptRoot/webapp" -WindowStyle $mode.WindowStyle
 }
+if ($mode.RunBackend -and (-not $mode.SkipBrowser)) {
+    Write-Host "Waiting for backend readiness on 11974..." -NoNewline
+    $ready = $false
+    for ($i = 0; $i -lt 30; $i++) {
+        try {
+            $tcp = New-Object System.Net.Sockets.TcpClient
+            $tcp.Connect("127.0.0.1", 11974)
+            $tcp.Close()
+            $ready = $true
+            break
+        } catch {
+            Start-Sleep -Milliseconds 250
+        }
+    }
+    if ($ready) { Write-Host " Ready." -ForegroundColor Green } else { Write-Host " Timed out waiting." -ForegroundColor Yellow }
+}
 if (-not $mode.SkipBrowser) { Start-Process "http://127.0.0.1:11975" }
 Write-Host "rss-mcp started. Backend 11974 Frontend 11975" -ForegroundColor Green

@@ -26,7 +26,26 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "pytest-asyncio>=0.24", "ruff>=0.16.0,<0.17", "respx>=0.22", "pillow>=10"]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=0.24",
+    "pytest-cov>=5.0.0",
+    "ruff>=0.16.0,<0.17",
+    "respx>=0.22",
+    "pillow>=10",
+    "pyright>=1.1.390",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=0.24",
+    "pytest-cov>=5.0.0",
+    "ruff>=0.16.0,<0.17",
+    "respx>=0.22",
+    "pillow>=10",
+    "pyright>=1.1.390",
+]
 
 [project.urls]
 Homepage = "https://github.com/sandraschi/rss-mcp"
@@ -43,14 +62,25 @@ where = ["src"]
 asyncio_mode = "auto"
 testpaths = ["tests"]
 pythonpath = ["src"]
+addopts = "--cov=rss_mcp --cov-fail-under=60"
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.12"
+include = ["src"]
 
 [tool.ruff]
 line-length = 120
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "B", "S", "UP", "RUF"]
-ignore = ["S101", "S603", "S607", "S324", "E501", "S310", "S110", "S112", "B008", "RUF002", "S106", "RUF012"]
+select = ["E", "F", "W", "I", "B", "S", "UP", "RUF", "T20"]
+ignore = ["S101", "S603", "S607", "S324", "E501", "S310", "B008", "RUF002", "S106", "RUF012"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["T20"]
+"scripts/*" = ["T20"]
 
 [tool.ruff.format]
 quote-style = "double"

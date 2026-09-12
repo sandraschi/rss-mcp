@@ -71,8 +71,14 @@ async def feeds_ops(
     RATIONALE: groups subscribe/unsubscribe/list/refresh/fetch/get/mark/star/remove/opml/health
     into one discoverable tool. Stateful reader, unlike glance-mcp single-shot fetch.
 
-    Return Format: {success, message, ...domain fields like feeds/items/feed/added/opml}
-    Examples: {operation: list_feeds} lists all; {operation: subscribe, url: ...} adds a feed.
+    ## Return Format
+    Dictionary with `success` (bool), `message` (str), and operation-specific payload (e.g. `feeds`, `items`, `feed`, `opml`).
+
+    ## Examples
+    - {"operation": "list_feeds"} -> lists all subscribed feeds.
+    - {"operation": "subscribe", "url": "https://news.ycombinator.com/rss"} -> subscribes to RSS feed.
+    - {"operation": "refresh_all"} -> polls all feeds for new articles.
+    - {"operation": "fetch_items", "limit": 20, "unread_only": true} -> retrieves unread articles.
     """
     if operation == "subscribe":
         if not url:
@@ -138,4 +144,4 @@ async def feeds_ops(
 
 
 def register(mcp: FastMCP) -> None:
-    mcp.tool()(feeds_ops)
+    mcp.tool(annotations={"mutating": True})(feeds_ops)

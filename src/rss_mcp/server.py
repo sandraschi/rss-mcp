@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import contextlib
+import json
 from pathlib import Path
 from typing import Any
 
@@ -19,22 +21,23 @@ tools_feeds.register(mcp)
 tools_read.register(mcp)
 tools_reader.register(mcp)
 
-try:
+with contextlib.suppress(Exception):
     from fastmcp.server.providers import SkillsDirectoryProvider
 
     skills_dir = Path(__file__).parent / "skills"
     if skills_dir.exists():
         mcp.add_provider(SkillsDirectoryProvider(str(skills_dir)))
-except Exception:
-    pass
 
 
-@mcp.tool()
+@mcp.tool(annotations={"read_only": True})
 async def rss_help() -> dict[str, Any]:
     """rss_help - Capability summary and op list.
 
-    Returns:
-        success, message, tools, ports, differentiation vs glance-mcp.
+    ## Return Format
+    Dictionary with `success` (bool), `message` (str), registered tools, ports, and comparison vs glance-mcp.
+
+    ## Examples
+    - {} -> summary of reader capabilities and registered tools.
     """
     return {
         "success": True,
@@ -45,22 +48,28 @@ async def rss_help() -> dict[str, Any]:
     }
 
 
-@mcp.tool()
+@mcp.tool(annotations={"destructive": True})
 async def rss_shutdown() -> dict[str, Any]:
     """rss_shutdown - Graceful shutdown hook for the daemon.
 
-    Returns:
-        success, message.
+    ## Return Format
+    Dictionary with `success` (bool) and acknowledgement `message` (str).
+
+    ## Examples
+    - {} -> acknowledges shutdown request.
     """
     return {"success": True, "message": "Shutdown acknowledged. Stop the daemon with Ctrl+C or stop.bat."}
 
 
-@mcp.tool(app=True)
+@mcp.tool(app=True, annotations={"read_only": True})
 async def show_reader_prefab_card() -> Any:
     """show_reader_prefab_card - Prefab stats card for list/status/stats coverage.
 
-    Returns:
-        ToolResult with PrefabApp structured content plus plain-text fallback.
+    ## Return Format
+    ToolResult with PrefabApp structured content plus plain-text fallback.
+
+    ## Examples
+    - {} -> renders reader stats card.
     """
     stats = tools_reader.stats_payload()
     lines = [
@@ -82,6 +91,16 @@ async def show_reader_prefab_card() -> Any:
         return ToolResult(content="\n".join(lines), structured_content=PrefabApp(view=view, title="rss-mcp Reader"))
     except Exception:
         return {"success": True, "message": lines[0], "stats": stats}
+
+
+@mcp.resource("rss://status")
+async def rss_status_resource() -> str:
+    """rss://status - Dynamic reader metrics and system status resource.
+
+    ## Return Format
+    JSON string containing feed counts, items, unread, starred, and extracts.
+    """
+    return json.dumps(tools_reader.stats_payload())
 
 
 @mcp.prompt("rss_help")

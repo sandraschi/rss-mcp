@@ -15,13 +15,13 @@ def _seed():
             (fid, "g9", "Vienna coffee houses", "Melange and newspapers"),
         )
         iid = cur.lastrowid
-        try:
+        import contextlib
+
+        with contextlib.suppress(Exception):
             con.execute(
                 "INSERT INTO items_fts(rowid, title, summary) VALUES(?,?,?)",
                 (iid, "Vienna coffee houses", "Melange and newspapers"),
             )
-        except Exception:
-            pass
         con.commit()
     finally:
         con.close()

@@ -15,13 +15,15 @@ export default function Dashboard({ query }: { query: string }) {
 			.catch(() => setStats(null));
 	}, []);
 	return (
-		<div>
+		<div data-testid="dashboard">
 			<section
 				data-testid="dashboard-hero"
 				className="rounded bg-slate-900 p-6"
 			>
-				<h1 className="text-2xl font-bold">Local RSS without ad sites</h1>
-				<p className="text-slate-400">
+				<h1 className="text-2xl font-bold text-slate-100">
+					Local RSS without ad sites
+				</h1>
+				<p className="text-slate-300">
 					Subscribe, refresh, read clean text. Query: {query}
 				</p>
 			</section>
@@ -31,14 +33,15 @@ export default function Dashboard({ query }: { query: string }) {
 						<div
 							key={k}
 							data-testid={`kpi-${k}`}
-							className="rounded bg-slate-900 p-3"
+							className="rounded bg-slate-900 p-3 text-slate-200"
 						>
-							{k}: {stats ? stats[k] : "loading"}
+							<span className="text-slate-300 font-medium">{k}:</span>{" "}
+							{stats ? stats[k] : "loading"}
 						</div>
 					),
 				)}
 			</div>
-			<div data-testid="dashboard-empty" className="mt-4 text-slate-500">
+			<div data-testid="dashboard-empty" className="mt-4 text-slate-300">
 				{stats && stats.feeds === 0
 					? "No feeds yet. Add one on the Feeds page."
 					: ""}

@@ -1,0 +1,9 @@
+{
+  "skills": [
+    {
+      "name": "rss-mcp",
+      "path": "rss-mcp/SKILL.md",
+      "auto_load": true
+    }
+  ]
+}

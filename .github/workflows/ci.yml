@@ -9,17 +9,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
+      - uses: oven-sh/setup-bun@v2
       - name: sync
         run: uv sync --extra dev
       - name: ruff check
         run: uv run ruff check src tests
       - name: ruff format
         run: uv run ruff format --check src tests
+      - name: pyright
+        run: uv run pyright src
       - name: pytest
         run: uv run pytest -q
       - name: webapp typecheck + biome
         working-directory: webapp
         run: |
           bun install --frozen-lockfile
-          bun run typecheck
-          bunx biome check src
+          bun run check
+          bun run biome:ci

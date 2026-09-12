@@ -85,10 +85,10 @@ async def reader_ops(
     if operation == "trigger_sweep":
         r = search.trigger_sweep(mode=mode, hours=hours, feed_id=feed_id)
         if ctx is not None:
-            try:
+            import contextlib
+
+            with contextlib.suppress(Exception):
                 await ctx.report_progress(0, 1)
-            except Exception:
-                pass
         return r
     if operation == "sweep_status":
         return search.sweep_status(job_id)
@@ -100,4 +100,4 @@ def stats_payload() -> dict[str, Any]:
 
 
 def register(mcp: FastMCP) -> None:
-    mcp.tool()(reader_ops)
+    mcp.tool(annotations={"mutating": True})(reader_ops)
