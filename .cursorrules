@@ -1,0 +1,7 @@
+# rss-mcp cursor rules
+- Python via `uv run python`, never naked python.
+- Ruff line-length 120.
+- No em dashes in any file (ASCII hyphens only).
+- Portmanteau tools only: feeds_ops, readability_ops, reader_ops.
+- All tool results are dialogic dicts with success + message.
+- Backend 11974, frontend 11975. Never use 3000/5000/5173/8000/8080.

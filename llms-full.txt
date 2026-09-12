@@ -1,0 +1,6 @@
+# rss-mcp full index
+Superduper local-first RSS reader + readability extractor.
+Tools: feeds_ops (13 ops), readability_ops (4 ops), reader_ops (7 ops), show_reader_prefab_card (Prefab), rss_help, rss_shutdown.
+API: GET /api/health, GET /api/capabilities, GET /api/tools, GET /api/dashboard, GET /api/feeds, POST /api/feeds/refresh, GET /api/inbox, GET /api/item/{id}, POST /api/readability/extract, GET /api/skills, GET /api/logs, POST /api/llm/chat (declared stub), POST /api/rag/sweep, GET /api/rag/sweep/{job_id}, mount /mcp.
+DB: sqlite WAL, feeds/items/FTS5/extracts/jobs. Path RSS_MCP_DB or data/rss.sqlite3.
+Ports 11974/11975. No wrappee, no account, onboarding N/A.

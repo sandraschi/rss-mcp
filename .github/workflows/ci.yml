@@ -1,0 +1,25 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  ci:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: sync
+        run: uv sync --extra dev
+      - name: ruff check
+        run: uv run ruff check src tests
+      - name: ruff format
+        run: uv run ruff format --check src tests
+      - name: pytest
+        run: uv run pytest -q
+      - name: webapp typecheck + biome
+        working-directory: webapp
+        run: |
+          bun install --frozen-lockfile
+          bun run typecheck
+          bunx biome check src

@@ -1,0 +1,5 @@
+# rss-mcp
+Superduper local-first RSS reader + readability extractor. Subscribe, clean-text extract, FTS + semantic search.
+- Tools: feeds_ops, readability_ops, reader_ops, show_reader_prefab_card
+- Ports: backend 11974, frontend 11975
+- Docs: docs/ARCHITECTURE.md, docs/TOOLS.md, docs/CONFIGURATION.md

@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+node_modules/
+webapp/
+src-tauri/
+tests/
+data/
+target/
+dist/
+build/
+*.egg-info/
+*.bak
+*.bak.*
+.env
+.git/
+.github/

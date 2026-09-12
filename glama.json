@@ -1,0 +1,1 @@
+{"name": "rss-mcp", "description": "Superduper local-first RSS reader + readability extractor - subscribe to feeds, get clean article text without ad sites, full-text + semantic search.", "version": "0.1.0", "transports": ["stdio", "http"], "repository": "https://github.com/sandraschi/rss-mcp"}
