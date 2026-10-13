@@ -3,6 +3,8 @@ import { Link, Route, Routes } from "react-router-dom";
 import { probeHealth } from "./lib/provider";
 import Chat from "./pages/Chat";
 import Dashboard from "./pages/Dashboard";
+import Discover from "./pages/Discover";
+import Favorites from "./pages/Favorites";
 import Feeds from "./pages/Feeds";
 import Help from "./pages/Help";
 import Inbox from "./pages/Inbox";
@@ -16,6 +18,8 @@ import Tools from "./pages/Tools";
 const NAV = [
 	"/",
 	"/reader",
+	"/favorites",
+	"/discover",
 	"/feeds",
 	"/inbox",
 	"/tools",
@@ -175,6 +179,8 @@ export default function App() {
 					<Routes>
 						<Route path="/" element={<Dashboard query={q} />} />
 						<Route path="/reader" element={<Reader />} />
+						<Route path="/favorites" element={<Favorites />} />
+						<Route path="/discover" element={<Discover />} />
 						<Route path="/feeds" element={<Feeds />} />
 						<Route path="/inbox" element={<Inbox />} />
 						<Route path="/tools" element={<Tools />} />
