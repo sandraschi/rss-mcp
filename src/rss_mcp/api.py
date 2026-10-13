@@ -14,10 +14,10 @@ import httpx
 from starlette.applications import Starlette
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
-from starlette.responses import JSONResponse, StreamingResponse
+from starlette.responses import JSONResponse, Response, StreamingResponse
 from starlette.routing import Route
 
-from rss_mcp import db, feeds, readability, search, tools_reader
+from rss_mcp import aiwatcher_bridge, db, discovery, faves, feeds, readability, search, tools_reader
 
 logger = logging.getLogger("rss_mcp.api")
 
@@ -313,6 +313,87 @@ async def reindex_status(req: Request) -> JSONResponse:
     return await rag_sweep_status(req)
 
 
+async def faves_list(req: Request) -> JSONResponse:
+    coll_id_str = req.query_params.get("collection_id")
+    coll_id = int(coll_id_str) if coll_id_str and coll_id_str.isdigit() else None
+    limit = int(req.query_params.get("limit", 100))
+    offset = int(req.query_params.get("offset", 0))
+    items = faves.list_starred_items(collection_id=coll_id, limit=limit, offset=offset)
+    return JSONResponse({"success": True, "items": items, "count": len(items)})
+
+
+async def faves_collections(_: Request) -> JSONResponse:
+    colls = faves.list_collections()
+    return JSONResponse({"success": True, "collections": colls})
+
+
+async def faves_collection_create(req: Request) -> JSONResponse:
+    body = await req.json()
+    name = str(body.get("name", ""))
+    desc = str(body.get("description", ""))
+    color = str(body.get("color", "#3b82f6"))
+    return JSONResponse(faves.create_collection(name, desc, color))
+
+
+async def faves_collection_delete(req: Request) -> JSONResponse:
+    coll_id = int(req.path_params.get("id", 0))
+    return JSONResponse(faves.delete_collection(coll_id))
+
+
+async def faves_item_collections(req: Request) -> JSONResponse:
+    item_id = int(req.path_params.get("id", 0))
+    body = await req.json()
+    action = body.get("action", "add")
+    coll_id = int(body.get("collection_id", 0))
+    if action == "add":
+        return JSONResponse(faves.add_item_to_collection(item_id, coll_id))
+    return JSONResponse(faves.remove_item_from_collection(item_id, coll_id))
+
+
+async def faves_item_note(req: Request) -> JSONResponse:
+    item_id = int(req.path_params.get("id", 0))
+    if req.method == "POST":
+        body = await req.json()
+        note_text = str(body.get("note", ""))
+        return JSONResponse(faves.set_item_note(item_id, note_text))
+    return JSONResponse({"success": True, "note": faves.get_item_note(item_id)})
+
+
+async def faves_export(req: Request) -> Response:
+    fmt = req.query_params.get("format", "markdown")
+    coll_id_str = req.query_params.get("collection_id")
+    coll_id = int(coll_id_str) if coll_id_str and coll_id_str.isdigit() else None
+    content = faves.export_starred(fmt=fmt, collection_id=coll_id)
+    media_type = "application/json" if fmt == "json" else "text/markdown"
+    return Response(content, media_type=media_type)
+
+
+async def discover_probe(req: Request) -> JSONResponse:
+    url = req.query_params.get("url", "")
+    if not url:
+        return JSONResponse({"success": False, "message": "url parameter required"}, status_code=400)
+    return JSONResponse(discovery.discover_feeds_from_url(url))
+
+
+async def discover_catalog(_: Request) -> JSONResponse:
+    return JSONResponse({"success": True, "categories": discovery.get_recommended_catalog()})
+
+
+async def aiwatcher_bundles_endpoint(_: Request) -> JSONResponse:
+    bundles = aiwatcher_bridge.get_aiwatcher_bundles()
+    return JSONResponse({"success": True, "bundles": bundles})
+
+
+async def aiwatcher_import_endpoint(req: Request) -> JSONResponse:
+    bundle_id = str(req.path_params.get("id", ""))
+    return JSONResponse(aiwatcher_bridge.import_bundle_feeds(bundle_id))
+
+
+async def aiwatcher_promote_endpoint(req: Request) -> JSONResponse:
+    item_id = int(req.path_params.get("id", 0))
+    return JSONResponse(aiwatcher_bridge.promote_item_to_aiwatcher(item_id))
+
+
 def build_app() -> Starlette:
     routes = [
         Route("/api/health", health),
@@ -340,6 +421,18 @@ def build_app() -> Starlette:
         Route("/api/rag/stats", rag_stats),
         Route("/api/reindex", reindex, methods=["GET", "POST"]),
         Route("/api/reindex/{job_id}", reindex_status),
+        Route("/api/faves", faves_list),
+        Route("/api/faves/collections", faves_collections),
+        Route("/api/faves/collections", faves_collection_create, methods=["POST"]),
+        Route("/api/faves/collections/{id:int}", faves_collection_delete, methods=["DELETE"]),
+        Route("/api/faves/items/{id:int}/collections", faves_item_collections, methods=["POST"]),
+        Route("/api/faves/items/{id:int}/note", faves_item_note, methods=["GET", "POST"]),
+        Route("/api/faves/export", faves_export),
+        Route("/api/discover", discover_probe),
+        Route("/api/discover/catalog", discover_catalog),
+        Route("/api/aiwatcher/bundles", aiwatcher_bundles_endpoint),
+        Route("/api/aiwatcher/bundles/{id:str}/import", aiwatcher_import_endpoint, methods=["POST"]),
+        Route("/api/aiwatcher/promote/{id:int}", aiwatcher_promote_endpoint, methods=["POST"]),
     ]
     app = Starlette(routes=routes)
     app.add_middleware(

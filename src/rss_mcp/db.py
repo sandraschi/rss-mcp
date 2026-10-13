@@ -52,6 +52,23 @@ CREATE TABLE IF NOT EXISTS jobs (
   message TEXT DEFAULT '',
   updated INTEGER DEFAULT 0
 );
+CREATE TABLE IF NOT EXISTS collections (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT UNIQUE NOT NULL,
+  description TEXT DEFAULT '',
+  color TEXT DEFAULT '#3b82f6',
+  created_at INTEGER DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS item_collections (
+  item_id INTEGER NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+  collection_id INTEGER NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
+  PRIMARY KEY (item_id, collection_id)
+);
+CREATE TABLE IF NOT EXISTS item_notes (
+  item_id INTEGER PRIMARY KEY REFERENCES items(id) ON DELETE CASCADE,
+  note TEXT DEFAULT '',
+  updated_at INTEGER DEFAULT 0
+);
 """
 
 
