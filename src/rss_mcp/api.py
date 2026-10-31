@@ -7,11 +7,14 @@ import logging
 import os
 import time
 from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
 import httpx
 from starlette.applications import Starlette
+from starlette.middleware import Middleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response, StreamingResponse
@@ -39,7 +42,14 @@ async def capabilities(_: Request) -> JSONResponse:
     return JSONResponse(
         {
             "service": "rss-mcp",
-            "tools": ["feeds_ops", "readability_ops", "reader_ops"],
+            "tools": [
+                "feeds_ops",
+                "readability_ops",
+                "reader_ops",
+                "show_reader_prefab_card",
+                "rss_help",
+                "rss_shutdown",
+            ],
             "ports": {"backend": 11974, "frontend": 11975},
         }
     )
@@ -89,6 +99,19 @@ async def tools(_: Request) -> JSONResponse:
 async def dashboard(_: Request) -> JSONResponse:
     stats = tools_reader.stats_payload()
     return JSONResponse({"success": True, "stats": stats, "uptime_s": int(time.time() - STARTED)})
+
+
+async def status(_: Request) -> JSONResponse:
+    stats = tools_reader.stats_payload()
+    return JSONResponse(
+        {
+            "service": "rss-mcp",
+            "status": "ok",
+            "uptime_s": int(time.time() - STARTED),
+            "tool_count": 6,
+            "stats": stats,
+        }
+    )
 
 
 async def feeds_list(_: Request) -> JSONResponse:
@@ -196,8 +219,29 @@ async def llm_providers(req: Request) -> JSONResponse:
 
 async def llm_models(req: Request) -> JSONResponse:
     provider = req.query_params.get("provider", "ollama")
+    # Live probe first; static list is the declared offline fallback.
+    if provider == "ollama":
+        try:
+            async with httpx.AsyncClient(timeout=2.0) as client:
+                r = await client.get("http://127.0.0.1:11434/api/tags")
+                if r.status_code == 200:
+                    models = [m.get("name") for m in r.json().get("models", []) if m.get("name")]
+                    if models:
+                        return JSONResponse({"provider": provider, "models": models, "live": True})
+        except Exception as exc:
+            logger.debug("llm_models ollama probe skipped: %s", exc)
+    elif provider == "lmstudio":
+        try:
+            async with httpx.AsyncClient(timeout=2.0) as client:
+                r = await client.get("http://127.0.0.1:1234/v1/models")
+                if r.status_code == 200:
+                    models = [m.get("id") for m in r.json().get("data", []) if m.get("id")]
+                    if models:
+                        return JSONResponse({"provider": provider, "models": models, "live": True})
+        except Exception as exc:
+            logger.debug("llm_models lmstudio probe skipped: %s", exc)
     models = ["llama3", "mistral", "qwen2.5-coder", "phi3"]
-    return JSONResponse({"provider": provider, "models": models})
+    return JSONResponse({"provider": provider, "models": models, "live": False})
 
 
 async def llm_onboarding(_: Request) -> JSONResponse:
@@ -395,8 +439,29 @@ async def aiwatcher_promote_endpoint(req: Request) -> JSONResponse:
 
 
 def build_app() -> Starlette:
+    # BUG-008/BUG-038: http_app(path="/") under Mount("/mcp"), with the
+    # sub-app lifespan folded into the parent. Bare http_app() double-prefixes
+    # (/mcp/mcp) and an uncomposed lifespan never starts the session manager.
+    try:
+        from rss_mcp.server import mcp as _mcp
+
+        mcp_app = _mcp.http_app(path="/")
+    except Exception as e:
+        log(f"mcp http_app failed: {e}")
+        mcp_app = None
+
+    @asynccontextmanager
+    async def lifespan(app: Starlette):
+        if mcp_app is not None:
+            async with mcp_app.lifespan(app):
+                yield
+        else:
+            yield
+
     routes = [
         Route("/api/health", health),
+        Route("/api/status", status),
+        Route("/api/v1/status", status),
         Route("/api/capabilities", capabilities),
         Route("/api/tools", tools),
         Route("/api/dashboard", dashboard),
@@ -434,7 +499,7 @@ def build_app() -> Starlette:
         Route("/api/aiwatcher/bundles/{id:str}/import", aiwatcher_import_endpoint, methods=["POST"]),
         Route("/api/aiwatcher/promote/{id:int}", aiwatcher_promote_endpoint, methods=["POST"]),
     ]
-    app = Starlette(routes=routes)
+    app = Starlette(routes=routes, lifespan=lifespan, middleware=[Middleware(_BareMcpRewriteMiddleware)])
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[
@@ -449,13 +514,23 @@ def build_app() -> Starlette:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    try:
-        from rss_mcp.server import mcp as _mcp
+    # Starlette Mount("/mcp") only matches "/mcp/*": rewrite the bare path
+    # so direct POSTs to /mcp reach the sub-app instead of 405ing.
+    if mcp_app is not None:
+        try:
+            app.mount("/mcp", mcp_app)
+        except Exception as e:
+            log(f"mcp mount failed: {e}")
 
-        app.mount("/mcp", _mcp.http_app())
-    except Exception as e:
-        log(f"mcp mount failed: {e}")
     return app
+
+
+class _BareMcpRewriteMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        if request.url.path == "/mcp":
+            request.scope["path"] = "/mcp/"
+            request.scope["raw_path"] = b"/mcp/"
+        return await call_next(request)
 
 
 def serve(host: str = "127.0.0.1", port: int = 11974) -> None:

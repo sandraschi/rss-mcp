@@ -77,6 +77,11 @@ Add to your `claude_desktop_config.json`:
 
 Backend `11974`, frontend `11975`. Forbidden ports are never used (3000, 5000, 5173, 8000, 8080).
 
+## Install (.mcpb for Claude Desktop)
+
+- Claude Desktop: install `rss-mcp.mcpb` from the latest GitHub release (releases/latest/download/rss-mcp.mcpb), then run `install.ps1`.
+- Other clients (Cursor/Codex/CLI): `uvx rss-mcp` (stdio transport, same tools as the bundle).
+
 ## vs glance-mcp
 
 `glance-mcp` is a lightweight holdall (single-shot fetch, weather, probes). `rss-mcp` is the stateful full reader: subscriptions, polling with ETag, readability cache, FTS5, stars, OPML, background sweeps.

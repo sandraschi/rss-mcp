@@ -21,13 +21,18 @@ if (-not $webRoot) {
 
 Push-Location $webRoot
 try {
+    $bunExe = Join-Path $env:USERPROFILE ".bun\bin\bun.exe"
+    if (-not (Test-Path -LiteralPath $bunExe)) {
+        $found = Get-Command bun.exe -ErrorAction SilentlyContinue
+        if ($found) { $bunExe = $found.Source } else { $bunExe = "bun" }
+    }
     if (-not (Test-Path "node_modules")) {
-        npm ci --silent
+        & $bunExe install --frozen-lockfile
         if ($LASTEXITCODE -ne 0) {
-            npm install --silent
+            & $bunExe install
         }
     }
-    npm run biome:ci
+    & $bunExe run biome:ci
     exit $LASTEXITCODE
 }
 finally {

@@ -9,6 +9,7 @@ Enables:
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -20,8 +21,11 @@ from rss_mcp.feeds import subscribe
 
 def _find_bundles_path() -> Path | None:
     # 1. Environment variable if set
-    candidates = [
-        Path("d:/Dev/repos/mcp-central-docs/operations/bundles.json"),
+    candidates = []
+    env_path = os.getenv("RSS_MCP_BUNDLES_JSON")
+    if env_path:
+        candidates.append(Path(env_path))
+    candidates += [
         Path(__file__).resolve().parents[3] / "mcp-central-docs" / "operations" / "bundles.json",
     ]
     for c in candidates:
